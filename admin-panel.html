@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Stationery Management</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="admin-body">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-cog"></i>
+            <span>Admin Panel</span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" onclick="showSection('items')">
+                <i class="fas fa-boxes"></i> Manage Items
+            </a>
+            <a href="#" class="nav-item" onclick="showSection('submissions')">
+                <i class="fas fa-clipboard-list"></i> Submissions
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button onclick="adminLogout()" class="btn-logout">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+        </div>
+    </aside>
+
+    <main class="admin-main">
+        <header class="admin-header">
+            <h2 id="sectionTitle"><i class="fas fa-boxes"></i> Manage Stationery Items</h2>
+            <div class="admin-info">
+                <span><i class="fas fa-user-circle"></i> Admin</span>
+            </div>
+        </header>
+
+        <!-- Items Management Section -->
+        <section id="itemsSection" class="admin-section active">
+            <div class="section-toolbar">
+                <button class="btn-add" onclick="openItemModal()">
+                    <i class="fas fa-plus"></i> Add New Item
+                </button>
+            </div>
+
+            <div class="items-table-container">
+                <table class="admin-table" id="itemsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Image</th>
+                            <th>Item Name</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsTableBody">
+                        <!-- Dynamic content -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Submissions Section -->
+        <section id="submissionsSection" class="admin-section">
+            <div class="section-toolbar">
+                <button class="btn-refresh" onclick="loadSubmissions()">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
+            </div>
+
+            <div class="submissions-container" id="submissionsList">
+                <!-- Dynamic submissions -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Add/Edit Item Modal -->
+    <div id="itemModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="modalTitle"><i class="fas fa-plus"></i> Add New Item</h3>
+                <button class="btn-close" onclick="closeItemModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="itemForm" onsubmit="return saveItem(event)">
+                <input type="hidden" id="itemId">
+                <div class="form-group">
+                    <label>Item Name <span class="required">*</span></label>
+                    <input type="text" id="itemName" placeholder="e.g., Ball Point Pen - Blue" required>
+                </div>
+                <div class="form-group">
+                    <label>Item Image URL <span class="required">*</span></label>
+                    <input type="url" id="itemImageUrl" placeholder="https://example.com/image.png" required>
+                    <p class="hint">Enter a direct image URL or use placeholder</p>
+                </div>
+                <div class="image-preview" id="imagePreview">
+                    <i class="fas fa-image"></i>
+                    <p>Image preview will appear here</p>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" onclick="closeItemModal()">Cancel</button>
+                    <button type="submit" class="btn-save"><i class="fas fa-save"></i> Save Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Submission Modal -->
+    <div id="submissionModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-alt"></i> Submission Details</h3>
+                <button class="btn-close" onclick="closeSubmissionModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="submissionDetails" class="submission-view"></div>
+            <div class="modal-actions">
+                <button class="btn-print" onclick="printSubmission()">
+                    <i class="fas fa-print"></i> Print / Save PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        checkAdminAuth();
+        loadAdminItems();
+        loadSubmissions();
+    </script>
+</body>
+</html>
