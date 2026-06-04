@@ -1,54 +1,566 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SUN MEDIA - Stationery Request</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Stationary Request • Internal App</title>
+  <!-- Font Awesome 6 for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- Google Fonts for clean typography -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f4f7fc;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 1.5rem;
+      margin: 0;
+    }
+    .app-container {
+      max-width: 950px;
+      width: 100%;
+      background: white;
+      border-radius: 2.5rem;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15);
+      padding: 2rem 2rem 2.5rem;
+      transition: all 0.3s ease;
+    }
+    /* dynamic views */
+    .view {
+      display: none;
+    }
+    .view.active-view {
+      display: block;
+    }
+    h1, h2, h3 {
+      color: #0b2b4f;
+      font-weight: 600;
+    }
+    .quote-box {
+      background: linear-gradient(105deg, #e9f2fa 0%, #d9e9fa 100%);
+      border-left: 6px solid #1e4a7a;
+      padding: 1.5rem 1.8rem;
+      border-radius: 1.2rem;
+      margin: 1.8rem 0 2rem;
+      font-style: italic;
+      font-weight: 500;
+      color: #0a3147;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .quote-box i {
+      font-size: 2.2rem;
+      color: #1e4a7a;
+      opacity: 0.7;
+    }
+    .btn {
+      background: white;
+      border: none;
+      padding: 0.8rem 1.8rem;
+      border-radius: 2.5rem;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.25s;
+      background: #f0f4fa;
+      color: #1e3b5a;
+      border: 1px solid #dce5f0;
+    }
+    .btn-primary {
+      background: #0b2b4f;
+      color: white;
+      border: 1px solid #0b2b4f;
+      box-shadow: 0 4px 10px rgba(11,43,79,0.2);
+    }
+    .btn-primary:hover {
+      background: #123a63;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 18px rgba(0,0,0,0.08);
+    }
+    .item-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1.5rem;
+      margin: 2rem 0;
+    }
+    .item-card {
+      background: #ffffff;
+      border: 1px solid #e9eef3;
+      border-radius: 1.5rem;
+      padding: 1.2rem 0.8rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.02);
+    }
+    .item-card.selected {
+      border: 2px solid #0b2b4f;
+      background: #f3f8ff;
+      box-shadow: 0 12px 22px rgba(11,43,79,0.15);
+    }
+    .item-card img {
+      width: 70px;
+      height: 70px;
+      object-fit: contain;
+      border-radius: 12px;
+      background: #f8fafd;
+      padding: 6px;
+      margin-bottom: 0.5rem;
+    }
+    .item-name {
+      font-weight: 600;
+      color: #1e293b;
+      margin: 0.3rem 0;
+    }
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #334155;
+      display: block;
+      margin-bottom: 0.4rem;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 0.9rem 1.2rem;
+      border: 1px solid #dce2ec;
+      border-radius: 1.2rem;
+      font-family: 'Inter', sans-serif;
+      background: #fafbfc;
+      transition: 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #0b2b4f;
+      box-shadow: 0 0 0 3px rgba(11,43,79,0.1);
+    }
+    .flex-row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 1rem;
+      overflow: hidden;
+    }
+    .admin-table th {
+      background: #f1f5f9;
+      padding: 0.9rem;
+      text-align: left;
+    }
+    .admin-table td {
+      padding: 0.8rem;
+      border-bottom: 1px solid #e9edf2;
+    }
+    .login-card {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    hr {
+      margin: 1.8rem 0;
+      border: 0.5px solid #e2e8f0;
+    }
+    @media (max-width: 500px) {
+      .app-container {
+        padding: 1.5rem;
+      }
+    }
+  </style>
 </head>
-<body class="landing-page">
-    <div class="landing-container">
-        <div class="company-header">
-            <h1>SUN MEDIA CORPORATION SDN BHD</h1>
-            <p class="subtitle">Internal Stationery Request System</p>
+<body>
+<div class="app-container" id="appRoot">
+  <!-- dynamic content injected via JS, but also initial landing exists as fallback -->
+</div>
+
+<script>
+  // ---------- DATA STORE ----------
+  const STORAGE_ITEMS = 'stationary_items_v1';
+  const STORAGE_REQUESTS = 'stationary_requests_v1';
+  const ADMIN_CRED = { user: 'admin', pass: 'stationary2024' };
+
+  // Default items with placeholder images (using icons/emojis as picture representation)
+  const defaultItems = [
+    { id: 1, name: 'Notebook', image: '📒', picture: '📒' },
+    { id: 2, name: 'Pen (Blue)', image: '🖊️', picture: '🖊️' },
+    { id: 3, name: 'Sticky Notes', image: '🗒️', picture: '🗒️' },
+    { id: 4, name: 'Paper Clips', image: '📎', picture: '📎' },
+    { id: 5, name: 'Marker', image: '🖍️', picture: '🖍️' },
+    { id: 6, name: 'Folder', image: '📁', picture: '📁' }
+  ];
+
+  // Helper: get items from localStorage
+  function getItems() {
+    const stored = localStorage.getItem(STORAGE_ITEMS);
+    return stored ? JSON.parse(stored) : defaultItems;
+  }
+  function saveItems(items) {
+    localStorage.setItem(STORAGE_ITEMS, JSON.stringify(items));
+  }
+  function getRequests() {
+    const stored = localStorage.getItem(STORAGE_REQUESTS);
+    return stored ? JSON.parse(stored) : [];
+  }
+  function saveRequests(requests) {
+    localStorage.setItem(STORAGE_REQUESTS, JSON.stringify(requests));
+  }
+
+  // ---------- APP STATE ----------
+  let currentView = 'landing'; // landing | requestForm | requestReview | adminLogin | adminPanel
+  let selectedItemId = null;
+  let requestQuantity = 1;
+  let requestPurpose = '';
+  let adminLoggedIn = false;
+
+  // ---------- RENDER ENGINE ----------
+  const appRoot = document.getElementById('appRoot');
+
+  function renderApp() {
+    if (currentView === 'landing') renderLanding();
+    else if (currentView === 'requestForm') renderRequestForm();
+    else if (currentView === 'requestReview') renderRequestReview();
+    else if (currentView === 'adminLogin') renderAdminLogin();
+    else if (currentView === 'adminPanel') renderAdminPanel();
+  }
+
+  // ----- LANDING PAGE -----
+  function renderLanding() {
+    const items = getItems();
+    let itemsHtml = '';
+    items.forEach(item => {
+      itemsHtml += `
+        <div class="item-card" onclick="navigateToRequest('${item.id}')">
+          <div style="font-size:2.5rem;">${item.picture || '📦'}</div>
+          <div class="item-name">${item.name}</div>
         </div>
+      `;
+    });
+
+    const html = `
+      <div class="view active-view">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h1><i class="fas fa-pencil-alt" style="margin-right:0.5rem;"></i>Stationary Request</h1>
+          <button class="btn" onclick="navigateTo('adminLogin')"><i class="fas fa-lock"></i> Admin</button>
+        </div>
+        <div class="quote-box">
+          <i class="fas fa-leaf"></i> 
+          <span>"Every thing we use is our responsibility."</span>
+        </div>
+        <h3 style="margin-top:1rem;">Select an item to request:</h3>
+        <div class="item-grid">
+          ${itemsHtml}
+        </div>
+        <div style="margin-top:1.5rem; color:#5e6f82;">
+          <i class="fas fa-info-circle"></i> Click on any item to start your request.
+        </div>
+      </div>
+    `;
+    appRoot.innerHTML = html;
+  }
+
+  // ----- REQUEST FORM (select quantity & purpose) -----
+  function renderRequestForm() {
+    const items = getItems();
+    const item = items.find(it => it.id == selectedItemId);
+    if (!item) {
+      navigateTo('landing');
+      return;
+    }
+    const html = `
+      <div class="view active-view">
+        <button class="btn" onclick="navigateTo('landing')"><i class="fas fa-arrow-left"></i> Back</button>
+        <h2 style="margin:1rem 0 0.5rem;">Request: ${item.name}</h2>
+        <div style="font-size:3rem; margin:0.5rem 0;">${item.picture || '📦'}</div>
         
-        <div class="quote-section">
-            <i class="fas fa-quote-left quote-icon"></i>
-            <blockquote>
-                "Everything we use is our responsibility. 
-                <br>Take only what you need, use it wisely."
-            </blockquote>
-            <i class="fas fa-quote-right quote-icon"></i>
+        <div class="form-group">
+          <label><i class="fas fa-sort-numeric-up"></i> Quantity *</label>
+          <input type="number" id="quantityInput" min="1" value="${requestQuantity}" placeholder="Enter quantity" oninput="updateQuantity(this.value)">
         </div>
-
-        <div class="features-preview">
-            <div class="feature">
-                <i class="fas fa-pen"></i>
-                <span>Request Stationery</span>
-            </div>
-            <div class="feature">
-                <i class="fas fa-clock"></i>
-                <span>Collection: 10AM - 4PM</span>
-            </div>
-            <div class="feature">
-                <i class="fas fa-check-circle"></i>
-                <span>Quick Approval</span>
-            </div>
+        <div class="form-group">
+          <label><i class="fas fa-pen"></i> Purpose of request *</label>
+          <textarea id="purposeInput" rows="3" placeholder="e.g., Department meeting, project work..." oninput="updatePurpose(this.value)">${requestPurpose}</textarea>
         </div>
-
-        <button class="btn-get-started" onclick="window.location.href='request.html'">
-            <i class="fas fa-play-circle"></i> Get Started
-        </button>
-
-        <div class="admin-link">
-            <a href="admin-login.html">
-                <i class="fas fa-lock"></i> Admin Portal
-            </a>
+        <div style="display:flex; gap:1rem; justify-content: flex-end;">
+          <button class="btn" onclick="validateAndReview()">Next: Review <i class="fas fa-chevron-right"></i></button>
         </div>
-    </div>
+        <p style="font-size:0.8rem; color:#777; margin-top:1rem;">* Both fields are required.</p>
+      </div>
+    `;
+    appRoot.innerHTML = html;
+    // Re-set input values after render
+    const qtyInput = document.getElementById('quantityInput');
+    const purposeInput = document.getElementById('purposeInput');
+    if(qtyInput) qtyInput.value = requestQuantity;
+    if(purposeInput) purposeInput.value = requestPurpose;
+  }
 
-    <script src="js/app.js"></script>
+  window.updateQuantity = function(val) {
+    requestQuantity = parseInt(val, 10) || 1;
+  };
+  window.updatePurpose = function(val) {
+    requestPurpose = val;
+  };
+
+  function validateAndReview() {
+    const qty = parseInt(requestQuantity, 10);
+    if (!qty || qty < 1) {
+      alert('Please enter a valid quantity (minimum 1).');
+      return;
+    }
+    if (!requestPurpose || requestPurpose.trim() === '') {
+      alert('Purpose is required.');
+      return;
+    }
+    navigateTo('requestReview');
+  }
+
+  // ----- REVIEW & SUBMIT -----
+  function renderRequestReview() {
+    const items = getItems();
+    const item = items.find(it => it.id == selectedItemId);
+    if (!item) { navigateTo('landing'); return; }
+    const html = `
+      <div class="view active-view">
+        <button class="btn" onclick="navigateTo('requestForm')"><i class="fas fa-edit"></i> Edit</button>
+        <h2>Review Your Request</h2>
+        <div style="background:#f8fafd; border-radius:1.5rem; padding:1.5rem; margin:1.2rem 0;">
+          <p><strong>Item:</strong> ${item.name} ${item.picture || ''}</p>
+          <p><strong>Quantity:</strong> ${requestQuantity}</p>
+          <p><strong>Purpose:</strong> ${requestPurpose}</p>
+        </div>
+        <button class="btn btn-primary" onclick="submitRequest()"><i class="fas fa-paper-plane"></i> Submit Request</button>
+        <p style="margin-top:0.8rem; color:#4b5563;">After submit, admin will review.</p>
+      </div>
+    `;
+    appRoot.innerHTML = html;
+  }
+
+  function submitRequest() {
+    const items = getItems();
+    const item = items.find(it => it.id == selectedItemId);
+    if (!item) return;
+    const requests = getRequests();
+    const newReq = {
+      id: Date.now(),
+      itemId: item.id,
+      itemName: item.name,
+      itemPicture: item.picture || '📦',
+      quantity: requestQuantity,
+      purpose: requestPurpose,
+      timestamp: new Date().toLocaleString(),
+    };
+    requests.push(newReq);
+    saveRequests(requests);
+    alert('✅ Request submitted successfully!');
+    // Reset form state
+    selectedItemId = null;
+    requestQuantity = 1;
+    requestPurpose = '';
+    navigateTo('landing');
+  }
+
+  // ----- ADMIN LOGIN -----
+  function renderAdminLogin() {
+    const html = `
+      <div class="view active-view login-card">
+        <button class="btn" onclick="navigateTo('landing')"><i class="fas fa-home"></i> Home</button>
+        <h2 style="margin-top:1.2rem;"><i class="fas fa-user-shield"></i> Admin Login</h2>
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="adminUser" placeholder="admin">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="adminPass" placeholder="••••••">
+        </div>
+        <button class="btn btn-primary" onclick="adminLogin()">Login</button>
+        <p style="margin-top:1rem; font-size:0.8rem; color:#666;">Demo: admin / stationary2024</p>
+      </div>
+    `;
+    appRoot.innerHTML = html;
+  }
+
+  window.adminLogin = function() {
+    const user = document.getElementById('adminUser')?.value.trim();
+    const pass = document.getElementById('adminPass')?.value.trim();
+    if (user === ADMIN_CRED.user && pass === ADMIN_CRED.pass) {
+      adminLoggedIn = true;
+      navigateTo('adminPanel');
+    } else {
+      alert('Invalid credentials');
+    }
+  };
+
+  // ----- ADMIN PANEL (Items CRUD + View Requests + Print)-----
+  function renderAdminPanel() {
+    if (!adminLoggedIn) {
+      navigateTo('adminLogin');
+      return;
+    }
+    const items = getItems();
+    const requests = getRequests();
+
+    let itemsTableRows = '';
+    items.forEach((item, index) => {
+      itemsTableRows += `
+        <tr>
+          <td>${item.picture || '📦'}</td>
+          <td>${item.name}</td>
+          <td>
+            <button class="btn" style="padding:0.3rem 0.8rem;" onclick="editItem(${item.id})"><i class="fas fa-edit"></i></button>
+            <button class="btn" style="padding:0.3rem 0.8rem; color:#b91c1c;" onclick="deleteItem(${item.id})"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>
+      `;
+    });
+
+    let requestsRows = '';
+    if (requests.length === 0) {
+      requestsRows = '<tr><td colspan="5" style="text-align:center;">No requests yet.</td></tr>';
+    } else {
+      requests.forEach(req => {
+        requestsRows += `
+          <tr>
+            <td>${req.itemPicture || '📦'} ${req.itemName}</td>
+            <td>${req.quantity}</td>
+            <td>${req.purpose}</td>
+            <td>${req.timestamp}</td>
+            <td><button class="btn" onclick="printRequest('${req.id}')"><i class="fas fa-print"></i> Print</button></td>
+          </tr>
+        `;
+      });
+    }
+
+    const html = `
+      <div class="view active-view">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2><i class="fas fa-cogs"></i> Admin Panel</h2>
+          <button class="btn" onclick="adminLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+        <hr>
+        <h3>📦 Manage Items</h3>
+        <div style="margin-bottom:1rem;">
+          <button class="btn" onclick="addNewItemPrompt()"><i class="fas fa-plus"></i> Add Item</button>
+        </div>
+        <table class="admin-table">
+          <thead><tr><th>Pic</th><th>Name</th><th>Actions</th></tr></thead>
+          <tbody>${itemsTableRows}</tbody>
+        </table>
+        <hr>
+        <h3>📋 Submitted Requests</h3>
+        <table class="admin-table">
+          <thead><tr><th>Item</th><th>Qty</th><th>Purpose</th><th>Time</th><th>Print/Save</th></tr></thead>
+          <tbody>${requestsRows}</tbody>
+        </table>
+      </div>
+    `;
+    appRoot.innerHTML = html;
+  }
+
+  window.addNewItemPrompt = function() {
+    const name = prompt('Enter item name:');
+    if (!name || name.trim() === '') return;
+    const picture = prompt('Enter emoji/picture representation (e.g., 📌):', '📌');
+    const items = getItems();
+    const newId = items.length ? Math.max(...items.map(i=>i.id)) + 1 : 1;
+    items.push({ id: newId, name: name.trim(), image: picture || '📦', picture: picture || '📦' });
+    saveItems(items);
+    renderAdminPanel(); // refresh
+    alert('Item added.');
+  };
+
+  window.editItem = function(id) {
+    const items = getItems();
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const newName = prompt('Edit name:', item.name);
+    if (newName === null) return;
+    const newPic = prompt('Edit picture/emoji:', item.picture || '📦');
+    if (newName.trim() !== '') item.name = newName.trim();
+    item.picture = newPic || item.picture;
+    item.image = item.picture;
+    saveItems(items);
+    renderAdminPanel();
+  };
+
+  window.deleteItem = function(id) {
+    if (!confirm('Delete this item? It will disappear from user list.')) return;
+    let items = getItems();
+    items = items.filter(i => i.id !== id);
+    saveItems(items);
+    renderAdminPanel();
+  };
+
+  window.printRequest = function(requestId) {
+    const requests = getRequests();
+    const req = requests.find(r => r.id == requestId);
+    if (!req) return;
+    const printWindow = window.open('', '_blank', 'width=700,height=600');
+    printWindow.document.write(`
+      <html>
+        <head><title>Stationary Request</title>
+        <style>body{font-family:sans-serif; padding:2rem;} h2{color:#0b2b4f;} .box{background:#f3f6fa; padding:1.5rem; border-radius:12px;}</style>
+        </head>
+        <body>
+          <h2>📄 Stationary Request</h2>
+          <div class="box">
+            <p><strong>Item:</strong> ${req.itemPicture} ${req.itemName}</p>
+            <p><strong>Quantity:</strong> ${req.quantity}</p>
+            <p><strong>Purpose:</strong> ${req.purpose}</p>
+            <p><strong>Date:</strong> ${req.timestamp}</p>
+          </div>
+          <p style="margin-top:2rem;">"Every thing we use is our responsibility."</p>
+          <script>window.onload=function(){window.print();}<\/script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  window.adminLogout = function() {
+    adminLoggedIn = false;
+    navigateTo('landing');
+  };
+
+  // ---------- NAVIGATION ----------
+  window.navigateTo = function(view) {
+    if (view === 'requestForm' && !selectedItemId) {
+      // fallback
+      view = 'landing';
+    }
+    currentView = view;
+    renderApp();
+  };
+
+  window.navigateToRequest = function(itemId) {
+    selectedItemId = parseInt(itemId, 10);
+    requestQuantity = 1;
+    requestPurpose = '';
+    navigateTo('requestForm');
+  };
+
+  // Initial render
+  renderApp();
+</script>
 </body>
 </html>
