@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Request</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <header class="app-header">
+        <div class="logo">
+            <i class="fas fa-box-open"></i>
+            <span>SUN MEDIA - Review Request</span>
+        </div>
+    </header>
+
+    <main class="review-container">
+        <h2><i class="fas fa-clipboard-check"></i> Complete Your Request</h2>
+        
+        <div class="review-card">
+            <div class="review-header">
+                <h3>Request Summary</h3>
+            </div>
+            
+            <div class="review-section">
+                <h4><i class="fas fa-user"></i> Requester Information</h4>
+                <div id="reviewBasicInfo" class="info-display"></div>
+            </div>
+
+            <div class="review-section">
+                <h4><i class="fas fa-list"></i> Requested Items</h4>
+                <div id="reviewItems" class="items-display"></div>
+            </div>
+
+            <div class="approval-section">
+                <div class="signature-box">
+                    <p><strong>Approved By HOD</strong></p>
+                    <div class="signature-line">____________________</div>
+                    <p>Date: _______________</p>
+                </div>
+                <div class="signature-box">
+                    <p><strong>Received By</strong></p>
+                    <div class="signature-line">____________________</div>
+                    <p>Date: _______________</p>
+                </div>
+            </div>
+
+            <div class="collection-note">
+                <i class="fas fa-clock"></i>
+                <strong>Stationery Collection:</strong> From 10:00 AM till 4:00 PM (exception for urgent request)
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn-back-form" onclick="window.location.href='request.html'">
+                <i class="fas fa-arrow-left"></i> Back to Form
+            </button>
+            <button class="btn-submit" onclick="submitRequest()">
+                <i class="fas fa-paper-plane"></i> Submit Request
+            </button>
+        </div>
+    </main>
+
+    <div id="successModal" class="modal">
+        <div class="modal-content centered">
+            <i class="fas fa-check-circle success-icon"></i>
+            <h3>Request Submitted Successfully!</h3>
+            <p>Your stationery request has been submitted for approval.</p>
+            <button onclick="window.location.href='index.html'" class="btn-ok">OK</button>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        displayReview();
+    </script>
+</body>
+</html>
