@@ -1,566 +1,827 @@
+
+<?php
+// ==============================================
+// Internal Stationery Request App
+// ==============================================
+// File: index.php - Complete application
+// Includes: Landing page, Request Form, Admin Panel
+// Features: Item management (CRUD), Request submission, Print/Save as PDF
+// ==============================================
+
+session_start();
+
+// Simple hardcoded admin credentials (in production, use database and hashed passwords)
+$admin_user = 'admin';
+$admin_pass = 'admin123';
+
+// File-based storage for items and requests
+$items_file = 'stationery_items.json';
+$requests_file = 'stationery_requests.json';
+
+// Initialize default items if file doesn't exist
+if (!file_exists($items_file)) {
+    $default_items = [
+        ['id' => 1, 'name' => 'Ball point pen - blue', 'picture' => ''],
+        ['id' => 2, 'name' => 'Ball point pen - black', 'picture' => ''],
+        ['id' => 3, 'name' => 'Ball point pen - red', 'picture' => ''],
+        ['id' => 4, 'name' => 'Marker pen - blue', 'picture' => ''],
+        ['id' => 5, 'name' => 'Marker pen - black', 'picture' => ''],
+        ['id' => 6, 'name' => 'Marker pen - red', 'picture' => ''],
+        ['id' => 7, 'name' => 'Pencil', 'picture' => ''],
+        ['id' => 8, 'name' => 'Eraser', 'picture' => ''],
+        ['id' => 9, 'name' => 'Arch file 3\'', 'picture' => ''],
+        ['id' => 10, 'name' => 'Arch file 2"', 'picture' => ''],
+        ['id' => 11, 'name' => 'Stapler', 'picture' => ''],
+        ['id' => 12, 'name' => 'Bullets for stapler', 'picture' => ''],
+        ['id' => 13, 'name' => 'Long ruler', 'picture' => ''],
+        ['id' => 14, 'name' => 'Hole puncher', 'picture' => ''],
+        ['id' => 15, 'name' => 'Paper clips - small', 'picture' => ''],
+        ['id' => 16, 'name' => 'Paper clips - jumbo', 'picture' => '']
+    ];
+    file_put_contents($items_file, json_encode($default_items));
+}
+
+if (!file_exists($requests_file)) {
+    file_put_contents($requests_file, json_encode([]));
+}
+
+// Helper functions
+function getItems() {
+    global $items_file;
+    return json_decode(file_get_contents($items_file), true);
+}
+
+function saveItems($items) {
+    global $items_file;
+    file_put_contents($items_file, json_encode($items));
+}
+
+function getRequests() {
+    global $requests_file;
+    return json_decode(file_get_contents($requests_file), true);
+}
+
+function saveRequests($requests) {
+    global $requests_file;
+    file_put_contents($requests_file, json_encode($requests));
+}
+
+// Handle POST requests
+$message = '';
+$message_type = '';
+
+// Admin Login
+if (isset($_POST['admin_login'])) {
+    if ($_POST['username'] == $admin_user && $_POST['password'] == $admin_pass) {
+        $_SESSION['admin_logged_in'] = true;
+        header('Location: ?page=admin');
+        exit;
+    } else {
+        $message = 'Invalid credentials!';
+        $message_type = 'error';
+    }
+}
+
+// Admin Logout
+if (isset($_GET['logout'])) {
+    session_destroy();
+    header('Location: ?page=home');
+    exit;
+}
+
+// Add Item
+if (isset($_POST['add_item'])) {
+    $items = getItems();
+    $new_id = count($items) > 0 ? max(array_column($items, 'id')) + 1 : 1;
+    $picture = '';
+    
+    if (isset($_FILES['item_picture']) && $_FILES['item_picture']['error'] == 0) {
+        $allowed = ['jpg', 'jpeg', 'png', 'gif'];
+        $filename = $_FILES['item_picture']['name'];
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        if (in_array($ext, $allowed)) {
+            $picture = 'uploads/' . time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $filename);
+            if (!is_dir('uploads')) mkdir('uploads', 0777, true);
+            move_uploaded_file($_FILES['item_picture']['tmp_name'], $picture);
+        }
+    }
+    
+    $items[] = ['id' => $new_id, 'name' => $_POST['item_name'], 'picture' => $picture];
+    saveItems($items);
+    $message = 'Item added successfully!';
+    $message_type = 'success';
+}
+
+// Edit Item
+if (isset($_POST['edit_item'])) {
+    $items = getItems();
+    foreach ($items as &$item) {
+        if ($item['id'] == $_POST['item_id']) {
+            $item['name'] = $_POST['item_name'];
+            if (isset($_FILES['item_picture']) && $_FILES['item_picture']['error'] == 0) {
+                $allowed = ['jpg', 'jpeg', 'png', 'gif'];
+                $filename = $_FILES['item_picture']['name'];
+                $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                if (in_array($ext, $allowed)) {
+                    if ($item['picture'] && file_exists($item['picture'])) unlink($item['picture']);
+                    $item['picture'] = 'uploads/' . time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $filename);
+                    move_uploaded_file($_FILES['item_picture']['tmp_name'], $item['picture']);
+                }
+            }
+            break;
+        }
+    }
+    saveItems($items);
+    $message = 'Item updated successfully!';
+    $message_type = 'success';
+}
+
+// Delete Item
+if (isset($_GET['delete_item'])) {
+    $items = getItems();
+    $items = array_filter($items, function($item) {
+        return $item['id'] != $_GET['delete_item'];
+    });
+    $items = array_values($items);
+    saveItems($items);
+    $message = 'Item deleted successfully!';
+    $message_type = 'success';
+    header('Location: ?page=admin&section=items');
+    exit;
+}
+
+// Submit Request (from form)
+if (isset($_POST['submit_request'])) {
+    $request = [
+        'id' => time(),
+        'name' => $_POST['name'],
+        'division' => $_POST['division'],
+        'dept' => $_POST['dept'],
+        'date' => $_POST['date'],
+        'requested_by' => $_POST['requested_by'],
+        'items' => [],
+        'submitted_at' => date('Y-m-d H:i:s')
+    ];
+    
+    foreach ($_POST['items'] as $item_id => $item_data) {
+        if (!empty($item_data['quantity']) && !empty($item_data['purpose'])) {
+            $request['items'][] = [
+                'item_id' => $item_id,
+                'item_name' => $item_data['name'],
+                'quantity' => $item_data['quantity'],
+                'purpose' => $item_data['purpose']
+            ];
+        }
+    }
+    
+    $requests = getRequests();
+    $requests[] = $request;
+    saveRequests($requests);
+    
+    $_SESSION['request_submitted'] = true;
+    header('Location: ?page=thankyou');
+    exit;
+}
+
+// Determine page
+$page = isset($_GET['page']) ? $_GET['page'] : 'home';
+$section = isset($_GET['section']) ? $_GET['section'] : 'dashboard';
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-  <title>Stationary Request • Internal App</title>
-  <!-- Font Awesome 6 for icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  <!-- Google Fonts for clean typography -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #f4f7fc;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 1.5rem;
-      margin: 0;
-    }
-    .app-container {
-      max-width: 950px;
-      width: 100%;
-      background: white;
-      border-radius: 2.5rem;
-      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15);
-      padding: 2rem 2rem 2.5rem;
-      transition: all 0.3s ease;
-    }
-    /* dynamic views */
-    .view {
-      display: none;
-    }
-    .view.active-view {
-      display: block;
-    }
-    h1, h2, h3 {
-      color: #0b2b4f;
-      font-weight: 600;
-    }
-    .quote-box {
-      background: linear-gradient(105deg, #e9f2fa 0%, #d9e9fa 100%);
-      border-left: 6px solid #1e4a7a;
-      padding: 1.5rem 1.8rem;
-      border-radius: 1.2rem;
-      margin: 1.8rem 0 2rem;
-      font-style: italic;
-      font-weight: 500;
-      color: #0a3147;
-      font-size: 1.2rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-    .quote-box i {
-      font-size: 2.2rem;
-      color: #1e4a7a;
-      opacity: 0.7;
-    }
-    .btn {
-      background: white;
-      border: none;
-      padding: 0.8rem 1.8rem;
-      border-radius: 2.5rem;
-      font-weight: 600;
-      font-size: 0.95rem;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      transition: all 0.25s;
-      background: #f0f4fa;
-      color: #1e3b5a;
-      border: 1px solid #dce5f0;
-    }
-    .btn-primary {
-      background: #0b2b4f;
-      color: white;
-      border: 1px solid #0b2b4f;
-      box-shadow: 0 4px 10px rgba(11,43,79,0.2);
-    }
-    .btn-primary:hover {
-      background: #123a63;
-    }
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 18px rgba(0,0,0,0.08);
-    }
-    .item-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 1.5rem;
-      margin: 2rem 0;
-    }
-    .item-card {
-      background: #ffffff;
-      border: 1px solid #e9eef3;
-      border-radius: 1.5rem;
-      padding: 1.2rem 0.8rem 1rem;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 6px 14px rgba(0,0,0,0.02);
-    }
-    .item-card.selected {
-      border: 2px solid #0b2b4f;
-      background: #f3f8ff;
-      box-shadow: 0 12px 22px rgba(11,43,79,0.15);
-    }
-    .item-card img {
-      width: 70px;
-      height: 70px;
-      object-fit: contain;
-      border-radius: 12px;
-      background: #f8fafd;
-      padding: 6px;
-      margin-bottom: 0.5rem;
-    }
-    .item-name {
-      font-weight: 600;
-      color: #1e293b;
-      margin: 0.3rem 0;
-    }
-    .form-group {
-      margin-bottom: 1.5rem;
-    }
-    label {
-      font-weight: 600;
-      font-size: 0.9rem;
-      color: #334155;
-      display: block;
-      margin-bottom: 0.4rem;
-    }
-    input, select, textarea {
-      width: 100%;
-      padding: 0.9rem 1.2rem;
-      border: 1px solid #dce2ec;
-      border-radius: 1.2rem;
-      font-family: 'Inter', sans-serif;
-      background: #fafbfc;
-      transition: 0.2s;
-    }
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: #0b2b4f;
-      box-shadow: 0 0 0 3px rgba(11,43,79,0.1);
-    }
-    .flex-row {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-    .admin-table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-      border-radius: 1rem;
-      overflow: hidden;
-    }
-    .admin-table th {
-      background: #f1f5f9;
-      padding: 0.9rem;
-      text-align: left;
-    }
-    .admin-table td {
-      padding: 0.8rem;
-      border-bottom: 1px solid #e9edf2;
-    }
-    .login-card {
-      max-width: 400px;
-      margin: 0 auto;
-    }
-    hr {
-      margin: 1.8rem 0;
-      border: 0.5px solid #e2e8f0;
-    }
-    @media (max-width: 500px) {
-      .app-container {
-        padding: 1.5rem;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internal Stationery Request System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* Navbar */
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .navbar .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .nav-links a {
+            text-decoration: none;
+            color: #333;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .nav-links a:hover {
+            color: #667eea;
+        }
+        
+        /* Cards and Forms */
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .hero {
+            text-align: center;
+            padding: 60px 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 24px;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        
+        .quote {
+            font-size: 1.3rem;
+            font-style: italic;
+            opacity: 0.95;
+            border-top: 2px solid rgba(255,255,255,0.3);
+            border-bottom: 2px solid rgba(255,255,255,0.3);
+            display: inline-block;
+            padding: 15px 30px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 28px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102,126,234,0.4);
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .form-group label {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-group input, .form-group select, .form-group textarea {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .item-row {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .item-row input {
+            margin-right: 10px;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        
+        .item-preview {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .navbar .container {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .hero h1 {
+                font-size: 2rem;
+            }
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+    </style>
 </head>
 <body>
-<div class="app-container" id="appRoot">
-  <!-- dynamic content injected via JS, but also initial landing exists as fallback -->
+
+<div class="navbar">
+    <div class="container">
+        <div class="logo">📋 Stationery Request System</div>
+        <div class="nav-links">
+            <a href="?page=home"><i class="fas fa-home"></i> Home</a>
+            <a href="?page=request"><i class="fas fa-clipboard-list"></i> Request Form</a>
+            <?php if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in']): ?>
+                <a href="?page=admin"><i class="fas fa-user-shield"></i> Admin Panel</a>
+                <a href="?logout=1"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            <?php else: ?>
+                <a href="?page=login"><i class="fas fa-lock"></i> Admin Login</a>
+            <?php endif; ?>
+        </div>
+    </div>
 </div>
 
-<script>
-  // ---------- DATA STORE ----------
-  const STORAGE_ITEMS = 'stationary_items_v1';
-  const STORAGE_REQUESTS = 'stationary_requests_v1';
-  const ADMIN_CRED = { user: 'admin', pass: 'stationary2024' };
-
-  // Default items with placeholder images (using icons/emojis as picture representation)
-  const defaultItems = [
-    { id: 1, name: 'Notebook', image: '📒', picture: '📒' },
-    { id: 2, name: 'Pen (Blue)', image: '🖊️', picture: '🖊️' },
-    { id: 3, name: 'Sticky Notes', image: '🗒️', picture: '🗒️' },
-    { id: 4, name: 'Paper Clips', image: '📎', picture: '📎' },
-    { id: 5, name: 'Marker', image: '🖍️', picture: '🖍️' },
-    { id: 6, name: 'Folder', image: '📁', picture: '📁' }
-  ];
-
-  // Helper: get items from localStorage
-  function getItems() {
-    const stored = localStorage.getItem(STORAGE_ITEMS);
-    return stored ? JSON.parse(stored) : defaultItems;
-  }
-  function saveItems(items) {
-    localStorage.setItem(STORAGE_ITEMS, JSON.stringify(items));
-  }
-  function getRequests() {
-    const stored = localStorage.getItem(STORAGE_REQUESTS);
-    return stored ? JSON.parse(stored) : [];
-  }
-  function saveRequests(requests) {
-    localStorage.setItem(STORAGE_REQUESTS, JSON.stringify(requests));
-  }
-
-  // ---------- APP STATE ----------
-  let currentView = 'landing'; // landing | requestForm | requestReview | adminLogin | adminPanel
-  let selectedItemId = null;
-  let requestQuantity = 1;
-  let requestPurpose = '';
-  let adminLoggedIn = false;
-
-  // ---------- RENDER ENGINE ----------
-  const appRoot = document.getElementById('appRoot');
-
-  function renderApp() {
-    if (currentView === 'landing') renderLanding();
-    else if (currentView === 'requestForm') renderRequestForm();
-    else if (currentView === 'requestReview') renderRequestReview();
-    else if (currentView === 'adminLogin') renderAdminLogin();
-    else if (currentView === 'adminPanel') renderAdminPanel();
-  }
-
-  // ----- LANDING PAGE -----
-  function renderLanding() {
-    const items = getItems();
-    let itemsHtml = '';
-    items.forEach(item => {
-      itemsHtml += `
-        <div class="item-card" onclick="navigateToRequest('${item.id}')">
-          <div style="font-size:2.5rem;">${item.picture || '📦'}</div>
-          <div class="item-name">${item.name}</div>
+<div class="container">
+    <?php if ($message): ?>
+        <div class="alert alert-<?php echo $message_type; ?>">
+            <?php echo $message; ?>
         </div>
-      `;
-    });
+    <?php endif; ?>
 
-    const html = `
-      <div class="view active-view">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h1><i class="fas fa-pencil-alt" style="margin-right:0.5rem;"></i>Stationary Request</h1>
-          <button class="btn" onclick="navigateTo('adminLogin')"><i class="fas fa-lock"></i> Admin</button>
+<?php
+// ==============================================
+// HOME PAGE
+// ==============================================
+if ($page == 'home'): ?>
+    <div class="hero">
+        <h1>Internal Stationery Request</h1>
+        <div class="quote">
+            <i class="fas fa-leaf"></i> "Everything we use is our responsibility — use wisely, conserve for tomorrow." <i class="fas fa-recycle"></i>
         </div>
-        <div class="quote-box">
-          <i class="fas fa-leaf"></i> 
-          <span>"Every thing we use is our responsibility."</span>
+        <div style="margin-top: 30px;">
+            <a href="?page=request" class="btn btn-primary" style="background: white; color: #667eea;">Get Started <i class="fas fa-arrow-right"></i></a>
         </div>
-        <h3 style="margin-top:1rem;">Select an item to request:</h3>
-        <div class="item-grid">
-          ${itemsHtml}
+    </div>
+    
+    <div class="card">
+        <h2><i class="fas fa-info-circle"></i> About This System</h2>
+        <p style="margin-top: 15px; line-height: 1.6;">This stationery request system allows employees to request office supplies efficiently. All requests are tracked and must be approved by HOD. Remember: Every item we use is a shared resource — request only what you truly need.</p>
+    </div>
+    
+    <div class="grid-2">
+        <div class="card">
+            <h3><i class="fas fa-check-circle"></i> How to Request</h3>
+            <ol style="margin-top: 15px; margin-left: 20px; line-height: 1.8;">
+                <li>Fill in your personal details</li>
+                <li>Select items and specify quantities</li>
+                <li>Provide purpose for each requested item</li>
+                <li>Submit for HOD approval</li>
+            </ol>
         </div>
-        <div style="margin-top:1.5rem; color:#5e6f82;">
-          <i class="fas fa-info-circle"></i> Click on any item to start your request.
+        <div class="card">
+            <h3><i class="fas fa-clock"></i> Collection Hours</h3>
+            <p style="margin-top: 15px;"><strong>Monday - Friday</strong><br>10:00 AM - 4:00 PM</p>
+            <p><em>Exceptions for urgent requests only</em></p>
         </div>
-      </div>
-    `;
-    appRoot.innerHTML = html;
-  }
+    </div>
 
-  // ----- REQUEST FORM (select quantity & purpose) -----
-  function renderRequestForm() {
-    const items = getItems();
-    const item = items.find(it => it.id == selectedItemId);
-    if (!item) {
-      navigateTo('landing');
-      return;
-    }
-    const html = `
-      <div class="view active-view">
-        <button class="btn" onclick="navigateTo('landing')"><i class="fas fa-arrow-left"></i> Back</button>
-        <h2 style="margin:1rem 0 0.5rem;">Request: ${item.name}</h2>
-        <div style="font-size:3rem; margin:0.5rem 0;">${item.picture || '📦'}</div>
+<?php
+// ==============================================
+// REQUEST FORM PAGE
+// ==============================================
+elseif ($page == 'request'):
+    $items = getItems();
+?>
+    <div class="card">
+        <h2><i class="fas fa-clipboard-list"></i> Stationery Request Form</h2>
+        <p style="color: #666; margin-top: 5px;">Please fill in all required fields. Quantity and Purpose are mandatory for each requested item.</p>
         
-        <div class="form-group">
-          <label><i class="fas fa-sort-numeric-up"></i> Quantity *</label>
-          <input type="number" id="quantityInput" min="1" value="${requestQuantity}" placeholder="Enter quantity" oninput="updateQuantity(this.value)">
+        <form method="POST" action="" style="margin-top: 25px;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> Name *</label>
+                    <input type="text" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-building"></i> Division *</label>
+                    <input type="text" name="division" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label><i class="fas fa-sitemap"></i> Department *</label>
+                    <input type="text" name="dept" required>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-calendar"></i> Date *</label>
+                    <input type="date" name="date" value="<?php echo date('Y-m-d'); ?>" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-user-check"></i> Requested By *</label>
+                <input type="text" name="requested_by" required placeholder="Your full name">
+            </div>
+            
+            <hr style="margin: 20px 0;">
+            
+            <h3><i class="fas fa-boxes"></i> Items Requested</h3>
+            <p style="color: #666; margin-bottom: 15px;">Quantity and Purpose are mandatory for each selected item.</p>
+            
+            <table style="width: 100%;">
+                <thead>
+                    <tr><th>Item</th><th>Quantity</th><th>Purpose</th></tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($items as $item): ?>
+                    <tr>
+                        <td style="display: flex; align-items: center; gap: 10px;">
+                            <?php if ($item['picture'] && file_exists($item['picture'])): ?>
+                                <img src="<?php echo $item['picture']; ?>" class="item-preview" style="width: 40px; height: 40px;">
+                            <?php else: ?>
+                                <i class="fas fa-pen" style="font-size: 24px; color: #667eea;"></i>
+                            <?php endif; ?>
+                            <?php echo htmlspecialchars($item['name']); ?>
+                            <input type="hidden" name="items[<?php echo $item['id']; ?>][name]" value="<?php echo htmlspecialchars($item['name']); ?>">
+                        </td>
+                        <td><input type="number" name="items[<?php echo $item['id']; ?>][quantity]" min="0" style="width: 80px; padding: 8px;" placeholder="Qty"></td>
+                        <td><input type="text" name="items[<?php echo $item['id']; ?>][purpose]" style="width: 100%; padding: 8px;" placeholder="Purpose of request"></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            
+            <div style="display: flex; gap: 15px; justify-content: flex-end; margin-top: 20px;">
+                <button type="reset" class="btn btn-secondary">Clear</button>
+                <button type="submit" name="submit_request" class="btn btn-primary">Continue to Review <i class="fas fa-arrow-right"></i></button>
+            </div>
+        </form>
+    </div>
+
+<?php
+// ==============================================
+// THANK YOU PAGE
+// ==============================================
+elseif ($page == 'thankyou'):
+?>
+    <div class="hero" style="padding: 50px;">
+        <i class="fas fa-check-circle" style="font-size: 80px; margin-bottom: 20px;"></i>
+        <h1>Request Submitted Successfully!</h1>
+        <p style="font-size: 1.2rem; margin-top: 15px;">Your stationery request has been sent for HOD approval.</p>
+        <div class="quote" style="margin-top: 30px;">
+            <i class="fas fa-hand-holding-heart"></i> "Every item we use is our responsibility — use with care."
         </div>
-        <div class="form-group">
-          <label><i class="fas fa-pen"></i> Purpose of request *</label>
-          <textarea id="purposeInput" rows="3" placeholder="e.g., Department meeting, project work..." oninput="updatePurpose(this.value)">${requestPurpose}</textarea>
+        <div style="margin-top: 30px;">
+            <a href="?page=home" class="btn btn-primary" style="background: white; color: #667eea;">Back to Home</a>
+            <a href="?page=request" class="btn btn-secondary" style="background: rgba(255,255,255,0.2); color: white;">Submit Another Request</a>
         </div>
-        <div style="display:flex; gap:1rem; justify-content: flex-end;">
-          <button class="btn" onclick="validateAndReview()">Next: Review <i class="fas fa-chevron-right"></i></button>
+    </div>
+
+<?php
+// ==============================================
+// ADMIN LOGIN PAGE
+// ==============================================
+elseif ($page == 'login'):
+?>
+    <div class="card" style="max-width: 400px; margin: 50px auto;">
+        <h2 style="text-align: center;"><i class="fas fa-lock"></i> Admin Login</h2>
+        <form method="POST" action="">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" name="username" required>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" required>
+            </div>
+            <button type="submit" name="admin_login" class="btn btn-primary">Login</button>
+        </form>
+    </div>
+
+<?php
+// ==============================================
+// ADMIN PANEL
+// ==============================================
+elseif ($page == 'admin'):
+    if (!isset($_SESSION['admin_logged_in']) || !$_SESSION['admin_logged_in']):
+        header('Location: ?page=login');
+        exit;
+    endif;
+    
+    $items = getItems();
+    $requests = getRequests();
+    $active_section = isset($_GET['section']) ? $_GET['section'] : 'dashboard';
+?>
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 200px;">
+            <div class="card" style="padding: 20px;">
+                <h3>Admin Menu</h3>
+                <ul style="list-style: none; margin-top: 15px;">
+                    <li><a href="?page=admin&section=dashboard" style="display: block; padding: 10px; color: #333; text-decoration: none;"><i class="fas fa-chart-line"></i> Dashboard</a></li>
+                    <li><a href="?page=admin&section=items" style="display: block; padding: 10px; color: #333; text-decoration: none;"><i class="fas fa-boxes"></i> Manage Items</a></li>
+                    <li><a href="?page=admin&section=requests" style="display: block; padding: 10px; color: #333; text-decoration: none;"><i class="fas fa-clipboard-list"></i> View Requests</a></li>
+                </ul>
+            </div>
         </div>
-        <p style="font-size:0.8rem; color:#777; margin-top:1rem;">* Both fields are required.</p>
-      </div>
-    `;
-    appRoot.innerHTML = html;
-    // Re-set input values after render
-    const qtyInput = document.getElementById('quantityInput');
-    const purposeInput = document.getElementById('purposeInput');
-    if(qtyInput) qtyInput.value = requestQuantity;
-    if(purposeInput) purposeInput.value = requestPurpose;
-  }
-
-  window.updateQuantity = function(val) {
-    requestQuantity = parseInt(val, 10) || 1;
-  };
-  window.updatePurpose = function(val) {
-    requestPurpose = val;
-  };
-
-  function validateAndReview() {
-    const qty = parseInt(requestQuantity, 10);
-    if (!qty || qty < 1) {
-      alert('Please enter a valid quantity (minimum 1).');
-      return;
-    }
-    if (!requestPurpose || requestPurpose.trim() === '') {
-      alert('Purpose is required.');
-      return;
-    }
-    navigateTo('requestReview');
-  }
-
-  // ----- REVIEW & SUBMIT -----
-  function renderRequestReview() {
-    const items = getItems();
-    const item = items.find(it => it.id == selectedItemId);
-    if (!item) { navigateTo('landing'); return; }
-    const html = `
-      <div class="view active-view">
-        <button class="btn" onclick="navigateTo('requestForm')"><i class="fas fa-edit"></i> Edit</button>
-        <h2>Review Your Request</h2>
-        <div style="background:#f8fafd; border-radius:1.5rem; padding:1.5rem; margin:1.2rem 0;">
-          <p><strong>Item:</strong> ${item.name} ${item.picture || ''}</p>
-          <p><strong>Quantity:</strong> ${requestQuantity}</p>
-          <p><strong>Purpose:</strong> ${requestPurpose}</p>
+        
+        <div style="flex: 3;">
+            <?php if ($active_section == 'dashboard'): ?>
+                <div class="card">
+                    <h2>Admin Dashboard</h2>
+                    <div class="grid-2" style="margin-top: 20px;">
+                        <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; border-radius: 12px;">
+                            <i class="fas fa-boxes" style="font-size: 40px;"></i>
+                            <h3 style="font-size: 36px; margin-top: 10px;"><?php echo count($items); ?></h3>
+                            <p>Total Stationery Items</p>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 20px; border-radius: 12px;">
+                            <i class="fas fa-clipboard-list" style="font-size: 40px;"></i>
+                            <h3 style="font-size: 36px; margin-top: 10px;"><?php echo count($requests); ?></h3>
+                            <p>Total Requests Received</p>
+                        </div>
+                    </div>
+                </div>
+            
+            <?php elseif ($active_section == 'items'): ?>
+                <div class="card">
+                    <h2><i class="fas fa-plus-circle"></i> Add New Item</h2>
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Item Name</label>
+                                <input type="text" name="item_name" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Item Picture</label>
+                                <input type="file" name="item_picture" accept="image/*">
+                            </div>
+                        </div>
+                        <button type="submit" name="add_item" class="btn btn-primary">Add Item</button>
+                    </form>
+                </div>
+                
+                <div class="card">
+                    <h2><i class="fas fa-edit"></i> Manage Items</h2>
+                    <table>
+                        <thead><tr><th>Picture</th><th>Item Name</th><th>Actions</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($items as $item): ?>
+                            <tr>
+                                <td>
+                                    <?php if ($item['picture'] && file_exists($item['picture'])): ?>
+                                        <img src="<?php echo $item['picture']; ?>" class="item-preview">
+                                    <?php else: ?>
+                                        <i class="fas fa-pen" style="font-size: 24px;"></i>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?php echo htmlspecialchars($item['name']); ?></td>
+                                <td>
+                                    <button onclick="editItem(<?php echo $item['id']; ?>, '<?php echo htmlspecialchars($item['name']); ?>')" class="btn btn-secondary" style="padding: 5px 10px;">Edit</button>
+                                    <a href="?page=admin&section=items&delete_item=<?php echo $item['id']; ?>" onclick="return confirm('Delete this item?')" class="btn btn-danger" style="padding: 5px 10px;">Delete</a>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Edit Item Modal -->
+                <div id="editModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000;">
+                    <div class="card" style="max-width: 500px; margin: auto;">
+                        <h3>Edit Item</h3>
+                        <form method="POST" enctype="multipart/form-data">
+                            <input type="hidden" name="item_id" id="edit_item_id">
+                            <div class="form-group">
+                                <label>Item Name</label>
+                                <input type="text" name="item_name" id="edit_item_name" required>
+                            </div>
+                            <div class="form-group">
+                                <label>New Picture (optional)</label>
+                                <input type="file" name="item_picture" accept="image/*">
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button type="submit" name="edit_item" class="btn btn-primary">Save Changes</button>
+                                <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <script>
+                    function editItem(id, name) {
+                        document.getElementById('edit_item_id').value = id;
+                        document.getElementById('edit_item_name').value = name;
+                        document.getElementById('editModal').style.display = 'flex';
+                    }
+                    function closeModal() {
+                        document.getElementById('editModal').style.display = 'none';
+                    }
+                </script>
+                
+            <?php elseif ($active_section == 'requests'): ?>
+                <div class="card">
+                    <h2><i class="fas fa-clipboard-list"></i> All Stationery Requests</h2>
+                    <?php if (empty($requests)): ?>
+                        <p>No requests submitted yet.</p>
+                    <?php else: ?>
+                        <?php foreach (array_reverse($requests) as $req): ?>
+                            <div style="border: 1px solid #ddd; border-radius: 12px; padding: 20px; margin-bottom: 20px;" id="request-<?php echo $req['id']; ?>">
+                                <div style="display: flex; justify-content: space-between; flex-wrap: wrap;">
+                                    <div>
+                                        <strong><?php echo htmlspecialchars($req['name']); ?></strong> - <?php echo htmlspecialchars($req['division']); ?> / <?php echo htmlspecialchars($req['dept']); ?>
+                                        <br>
+                                        <small>Requested by: <?php echo htmlspecialchars($req['requested_by']); ?> | Date: <?php echo $req['date']; ?></small>
+                                        <br>
+                                        <small>Submitted: <?php echo $req['submitted_at']; ?></small>
+                                    </div>
+                                    <div>
+                                        <button onclick="printRequest(<?php echo $req['id']; ?>)" class="btn btn-secondary"><i class="fas fa-print"></i> Print</button>
+                                        <button onclick="saveAsPDF(<?php echo $req['id']; ?>)" class="btn btn-primary"><i class="fas fa-file-pdf"></i> Save as PDF</button>
+                                    </div>
+                                </div>
+                                <hr style="margin: 15px 0;">
+                                <table style="width: 100%; font-size: 0.9rem;">
+                                    <thead><tr><th>Item</th><th>Quantity</th><th>Purpose</th></tr></thead>
+                                    <tbody>
+                                        <?php foreach ($req['items'] as $item): ?>
+                                        <tr><td><?php echo htmlspecialchars($item['item_name']); ?></td><td><?php echo $item['quantity']; ?></td><td><?php echo htmlspecialchars($item['purpose']); ?></td></tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                                <div style="margin-top: 15px; display: flex; justify-content: space-between;">
+                                    <span>APPROVED BY HOD: _______________</span>
+                                    <span>RECEIVED BY: _______________</span>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+                
+                <script>
+                    function printRequest(id) {
+                        const content = document.getElementById('request-' + id).cloneNode(true);
+                        const printWindow = window.open('', '_blank');
+                        printWindow.document.write(`
+                            <html><head><title>Stationery Request</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; padding: 40px; }
+                                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                                th { background: #f0f0f0; }
+                                .header { text-align: center; margin-bottom: 30px; }
+                                .signatures { margin-top: 30px; display: flex; justify-content: space-between; }
+                            </style>
+                            </head><body>
+                            <div class="header"><h2>SUN MEDIA CORPORATION SDN BHD</h2><h3>Internal Stationery Request Form</h3></div>
+                            ${content.innerHTML}
+                            </body></html>
+                        `);
+                        printWindow.document.close();
+                        printWindow.print();
+                    }
+                    
+                    function saveAsPDF(id) {
+                        const content = document.getElementById('request-' + id).cloneNode(true);
+                        const printWindow = window.open('', '_blank');
+                        printWindow.document.write(`
+                            <html><head><title>Stationery Request</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; padding: 40px; }
+                                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                                th { background: #f0f0f0; }
+                                .header { text-align: center; margin-bottom: 30px; }
+                                .signatures { margin-top: 30px; display: flex; justify-content: space-between; }
+                                button { display: none; }
+                            </style>
+                            </head><body>
+                            <div class="header"><h2>SUN MEDIA CORPORATION SDN BHD</h2><h3>Internal Stationery Request Form</h3></div>
+                            ${content.innerHTML}
+                            <p style="margin-top: 40px; text-align: center;">Generated on ${new Date().toLocaleString()}</p>
+                            </body></html>
+                        `);
+                        printWindow.document.close();
+                        printWindow.print();
+                    }
+                </script>
+            <?php endif; ?>
         </div>
-        <button class="btn btn-primary" onclick="submitRequest()"><i class="fas fa-paper-plane"></i> Submit Request</button>
-        <p style="margin-top:0.8rem; color:#4b5563;">After submit, admin will review.</p>
-      </div>
-    `;
-    appRoot.innerHTML = html;
-  }
-
-  function submitRequest() {
-    const items = getItems();
-    const item = items.find(it => it.id == selectedItemId);
-    if (!item) return;
-    const requests = getRequests();
-    const newReq = {
-      id: Date.now(),
-      itemId: item.id,
-      itemName: item.name,
-      itemPicture: item.picture || '📦',
-      quantity: requestQuantity,
-      purpose: requestPurpose,
-      timestamp: new Date().toLocaleString(),
-    };
-    requests.push(newReq);
-    saveRequests(requests);
-    alert('✅ Request submitted successfully!');
-    // Reset form state
-    selectedItemId = null;
-    requestQuantity = 1;
-    requestPurpose = '';
-    navigateTo('landing');
-  }
-
-  // ----- ADMIN LOGIN -----
-  function renderAdminLogin() {
-    const html = `
-      <div class="view active-view login-card">
-        <button class="btn" onclick="navigateTo('landing')"><i class="fas fa-home"></i> Home</button>
-        <h2 style="margin-top:1.2rem;"><i class="fas fa-user-shield"></i> Admin Login</h2>
-        <div class="form-group">
-          <label>Username</label>
-          <input type="text" id="adminUser" placeholder="admin">
-        </div>
-        <div class="form-group">
-          <label>Password</label>
-          <input type="password" id="adminPass" placeholder="••••••">
-        </div>
-        <button class="btn btn-primary" onclick="adminLogin()">Login</button>
-        <p style="margin-top:1rem; font-size:0.8rem; color:#666;">Demo: admin / stationary2024</p>
-      </div>
-    `;
-    appRoot.innerHTML = html;
-  }
-
-  window.adminLogin = function() {
-    const user = document.getElementById('adminUser')?.value.trim();
-    const pass = document.getElementById('adminPass')?.value.trim();
-    if (user === ADMIN_CRED.user && pass === ADMIN_CRED.pass) {
-      adminLoggedIn = true;
-      navigateTo('adminPanel');
-    } else {
-      alert('Invalid credentials');
-    }
-  };
-
-  // ----- ADMIN PANEL (Items CRUD + View Requests + Print)-----
-  function renderAdminPanel() {
-    if (!adminLoggedIn) {
-      navigateTo('adminLogin');
-      return;
-    }
-    const items = getItems();
-    const requests = getRequests();
-
-    let itemsTableRows = '';
-    items.forEach((item, index) => {
-      itemsTableRows += `
-        <tr>
-          <td>${item.picture || '📦'}</td>
-          <td>${item.name}</td>
-          <td>
-            <button class="btn" style="padding:0.3rem 0.8rem;" onclick="editItem(${item.id})"><i class="fas fa-edit"></i></button>
-            <button class="btn" style="padding:0.3rem 0.8rem; color:#b91c1c;" onclick="deleteItem(${item.id})"><i class="fas fa-trash"></i></button>
-          </td>
-        </tr>
-      `;
-    });
-
-    let requestsRows = '';
-    if (requests.length === 0) {
-      requestsRows = '<tr><td colspan="5" style="text-align:center;">No requests yet.</td></tr>';
-    } else {
-      requests.forEach(req => {
-        requestsRows += `
-          <tr>
-            <td>${req.itemPicture || '📦'} ${req.itemName}</td>
-            <td>${req.quantity}</td>
-            <td>${req.purpose}</td>
-            <td>${req.timestamp}</td>
-            <td><button class="btn" onclick="printRequest('${req.id}')"><i class="fas fa-print"></i> Print</button></td>
-          </tr>
-        `;
-      });
-    }
-
-    const html = `
-      <div class="view active-view">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h2><i class="fas fa-cogs"></i> Admin Panel</h2>
-          <button class="btn" onclick="adminLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
-        </div>
-        <hr>
-        <h3>📦 Manage Items</h3>
-        <div style="margin-bottom:1rem;">
-          <button class="btn" onclick="addNewItemPrompt()"><i class="fas fa-plus"></i> Add Item</button>
-        </div>
-        <table class="admin-table">
-          <thead><tr><th>Pic</th><th>Name</th><th>Actions</th></tr></thead>
-          <tbody>${itemsTableRows}</tbody>
-        </table>
-        <hr>
-        <h3>📋 Submitted Requests</h3>
-        <table class="admin-table">
-          <thead><tr><th>Item</th><th>Qty</th><th>Purpose</th><th>Time</th><th>Print/Save</th></tr></thead>
-          <tbody>${requestsRows}</tbody>
-        </table>
-      </div>
-    `;
-    appRoot.innerHTML = html;
-  }
-
-  window.addNewItemPrompt = function() {
-    const name = prompt('Enter item name:');
-    if (!name || name.trim() === '') return;
-    const picture = prompt('Enter emoji/picture representation (e.g., 📌):', '📌');
-    const items = getItems();
-    const newId = items.length ? Math.max(...items.map(i=>i.id)) + 1 : 1;
-    items.push({ id: newId, name: name.trim(), image: picture || '📦', picture: picture || '📦' });
-    saveItems(items);
-    renderAdminPanel(); // refresh
-    alert('Item added.');
-  };
-
-  window.editItem = function(id) {
-    const items = getItems();
-    const item = items.find(i => i.id === id);
-    if (!item) return;
-    const newName = prompt('Edit name:', item.name);
-    if (newName === null) return;
-    const newPic = prompt('Edit picture/emoji:', item.picture || '📦');
-    if (newName.trim() !== '') item.name = newName.trim();
-    item.picture = newPic || item.picture;
-    item.image = item.picture;
-    saveItems(items);
-    renderAdminPanel();
-  };
-
-  window.deleteItem = function(id) {
-    if (!confirm('Delete this item? It will disappear from user list.')) return;
-    let items = getItems();
-    items = items.filter(i => i.id !== id);
-    saveItems(items);
-    renderAdminPanel();
-  };
-
-  window.printRequest = function(requestId) {
-    const requests = getRequests();
-    const req = requests.find(r => r.id == requestId);
-    if (!req) return;
-    const printWindow = window.open('', '_blank', 'width=700,height=600');
-    printWindow.document.write(`
-      <html>
-        <head><title>Stationary Request</title>
-        <style>body{font-family:sans-serif; padding:2rem;} h2{color:#0b2b4f;} .box{background:#f3f6fa; padding:1.5rem; border-radius:12px;}</style>
-        </head>
-        <body>
-          <h2>📄 Stationary Request</h2>
-          <div class="box">
-            <p><strong>Item:</strong> ${req.itemPicture} ${req.itemName}</p>
-            <p><strong>Quantity:</strong> ${req.quantity}</p>
-            <p><strong>Purpose:</strong> ${req.purpose}</p>
-            <p><strong>Date:</strong> ${req.timestamp}</p>
-          </div>
-          <p style="margin-top:2rem;">"Every thing we use is our responsibility."</p>
-          <script>window.onload=function(){window.print();}<\/script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-  };
-
-  window.adminLogout = function() {
-    adminLoggedIn = false;
-    navigateTo('landing');
-  };
-
-  // ---------- NAVIGATION ----------
-  window.navigateTo = function(view) {
-    if (view === 'requestForm' && !selectedItemId) {
-      // fallback
-      view = 'landing';
-    }
-    currentView = view;
-    renderApp();
-  };
-
-  window.navigateToRequest = function(itemId) {
-    selectedItemId = parseInt(itemId, 10);
-    requestQuantity = 1;
-    requestPurpose = '';
-    navigateTo('requestForm');
-  };
-
-  // Initial render
-  renderApp();
-</script>
+    </div>
+<?php endif; ?>
+</div>
 </body>
 </html>
