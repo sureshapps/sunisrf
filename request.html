@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stationery Request Form</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <header class="app-header">
+        <div class="logo">
+            <i class="fas fa-box-open"></i>
+            <span>SUN MEDIA - Stationery Request</span>
+        </div>
+        <div class="header-actions">
+            <a href="index.html" class="btn-back"><i class="fas fa-home"></i></a>
+        </div>
+    </header>
+
+    <main class="form-container">
+        <h2><i class="fas fa-file-alt"></i> Internal Stationery Request Form</h2>
+        
+        <!-- Basic Information -->
+        <section class="basic-info">
+            <h3><i class="fas fa-user"></i> Basic Information</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="reqName">Name <span class="required">*</span></label>
+                    <input type="text" id="reqName" placeholder="Enter your name" required>
+                </div>
+                <div class="form-group">
+                    <label for="reqDivision">Division <span class="required">*</span></label>
+                    <input type="text" id="reqDivision" placeholder="Enter division" required>
+                </div>
+                <div class="form-group">
+                    <label for="reqDept">Department <span class="required">*</span></label>
+                    <input type="text" id="reqDept" placeholder="Enter department" required>
+                </div>
+                <div class="form-group">
+                    <label for="reqDate">Date <span class="required">*</span></label>
+                    <input type="date" id="reqDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="reqBy">Requested By <span class="required">*</span></label>
+                    <input type="text" id="reqBy" placeholder="Enter requester name" required>
+                </div>
+            </div>
+        </section>
+
+        <!-- Items Selection -->
+        <section class="items-section">
+            <h3><i class="fas fa-shopping-cart"></i> Select Items</h3>
+            <p class="note"><i class="fas fa-info-circle"></i> Quantity and Purpose are required for each selected item</p>
+            
+            <div class="items-grid" id="itemsContainer">
+                <!-- Items loaded dynamically -->
+            </div>
+        </section>
+
+        <div class="form-actions">
+            <button class="btn-review" onclick="goToReview()">
+                <i class="fas fa-eye"></i> Review Request
+            </button>
+        </div>
+    </main>
+
+    <script src="js/app.js"></script>
+    <script>
+        document.getElementById('reqDate').valueAsDate = new Date();
+        loadItemsForRequest();
+    </script>
+</body>
+</html>
